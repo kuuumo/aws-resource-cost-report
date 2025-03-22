@@ -26,15 +26,24 @@ on:
         required: false
         default: 'all'
 
+# OIDCのパーミッション設定
+permissions:
+  id-token: write  # OIDC認証に必要
+  contents: write  # リポジトリへのコミット権限
+
 jobs:
   generate-report:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}  # GitHubリポジトリの変数に設定したロールARN
+          aws-region: ${{ vars.AWS_REGION }}  # GitHubリポジトリの変数に設定したAWSリージョン
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -47,10 +56,6 @@ jobs:
           pip install boto3 requests
       
       - name: Generate AWS resource cost report
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
           # 手動実行時の引数処理
           START_DATE_ARG=""
