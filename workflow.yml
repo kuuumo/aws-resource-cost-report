@@ -1,0 +1,91 @@
+# AWS リソース・コストレポート生成ワークフロー
+
+このファイルはGitHub Actionsでの自動実行のためのワークフローファイルと同等の設定を記載しています。
+以下の設定を`.github/workflows/generate-report.yml`として保存すると、GitHub Actionsで自動実行されるようになります。
+
+```yaml
+name: AWS Resource Cost Report
+
+on:
+  schedule:
+    # 毎週月曜日の午前9時(UTC)に実行
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    # 手動実行のためのオプション
+    inputs:
+      start_date:
+        description: 'Start date for cost analysis (YYYY-MM-DD)'
+        required: false
+        default: ''
+      end_date:
+        description: 'End date for cost analysis (YYYY-MM-DD)'
+        required: false
+        default: ''
+      regions:
+        description: 'Comma-separated list of AWS regions to analyze (or "all")'
+        required: false
+        default: 'all'
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install boto3 requests
+      
+      - name: Generate AWS resource cost report
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: |
+          # 手動実行時の引数処理
+          START_DATE_ARG=""
+          if [ "${{ github.event.inputs.start_date }}" != "" ]; then
+            START_DATE_ARG="--start-date ${{ github.event.inputs.start_date }}"
+          fi
+          
+          END_DATE_ARG=""
+          if [ "${{ github.event.inputs.end_date }}" != "" ]; then
+            END_DATE_ARG="--end-date ${{ github.event.inputs.end_date }}"
+          fi
+          
+          REGIONS_ARG=""
+          if [ "${{ github.event.inputs.regions }}" != "all" ] && [ "${{ github.event.inputs.regions }}" != "" ]; then
+            REGIONS_ARG="--regions ${{ github.event.inputs.regions }}"
+          fi
+          
+          # レポート出力用のディレクトリを作成
+          mkdir -p reports
+          
+          # レポート生成
+          python src/main.py $START_DATE_ARG $END_DATE_ARG $REGIONS_ARG
+      
+      - name: Commit and push report
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add reports/
+          
+          # 変更があるか確認
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+            git commit -m "Update AWS resource cost report - $timestamp"
+            git push
+          fi
+```
