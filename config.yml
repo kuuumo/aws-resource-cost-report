@@ -1,0 +1,62 @@
+# AWS リソース・コストレポート設定ファイル
+
+# AWS リージョン設定
+regions:
+  # 対象リージョン（カンマ区切り、または'all'）
+  include: "all"
+  # 除外リージョン（カンマ区切り）
+  exclude: ""
+
+# コスト分析設定
+cost_analysis:
+  # EC2インスタンスのタイプ別コスト分析
+  ec2_instance_types: true
+  # RDSインスタンスのタイプ別コスト分析
+  rds_instance_types: true
+  # EBSボリュームのタイプ別コスト分析
+  ebs_volume_types: true
+  # S3バケットのストレージクラス別コスト分析
+  s3_storage_classes: true
+
+# リソース分析設定
+resource_analysis:
+  # EC2インスタンスの詳細分析
+  ec2_instances: true
+  # RDSインスタンスの詳細分析
+  rds_instances: true
+  # EBSボリュームの詳細分析
+  ebs_volumes: true
+  # S3バケットの詳細分析
+  s3_buckets: true
+  # ElastiCacheクラスターの詳細分析
+  elasticache_clusters: true
+  # ロードバランサーの詳細分析
+  load_balancers: true
+
+# 最適化推奨設定
+optimization:
+  # 停止中のEC2インスタンスの検出
+  stopped_ec2_instances: true
+  # 低使用率のEC2インスタンスの検出（CPU使用率閾値）
+  low_utilization_ec2_threshold: 5.0
+  # 未使用のEBSボリュームの検出
+  unused_ebs_volumes: true
+  # 旧世代のインスタンスタイプの検出
+  old_generation_instances: true
+  # リザーブドインスタンスのカバレッジ分析
+  reserved_instance_coverage: true
+
+# レポート設定
+report:
+  # 出力形式（markdown, html, csv）
+  format: "markdown"
+  # レポートに含めるセクション
+  sections:
+    summary: true
+    service_costs: true
+    region_costs: true
+    ec2_instances: true
+    rds_instances: true
+    other_resources: true
+    daily_trends: true
+    optimization_recommendations: true
