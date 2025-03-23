@@ -13,7 +13,7 @@ class ReportGenerator:
     AWS のリソースとコスト情報からレポートを生成するクラス
     """
     
-    def __init__(self, cost_data, resource_data, start_date, end_date):
+    def __init__(self, cost_data, resource_data, start_date, end_date, config=None):
         """
         初期化
         
@@ -22,11 +22,13 @@ class ReportGenerator:
             resource_data (dict): Resource Explorer から取得したリソースデータ
             start_date (str): 期間の開始日 (YYYY-MM-DD形式)
             end_date (str): 期間の終了日 (YYYY-MM-DD形式)
+            config (dict, optional): レポート生成の設定
         """
         self.cost_data = cost_data
         self.resource_data = resource_data
         self.start_date = start_date
         self.end_date = end_date
+        self.config = config or {}
     
     def generate(self, output_file):
         """

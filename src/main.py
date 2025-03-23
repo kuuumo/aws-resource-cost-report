@@ -18,19 +18,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def get_last_month_first_day():
+    """先月の初日を取得"""
+    today = datetime.date.today()
+    # 今月の1日
+    first_day_of_this_month = today.replace(day=1)
+    # 今月の1日から1日引くと先月の末日
+    last_day_of_last_month = first_day_of_this_month - datetime.timedelta(days=1)
+    # 先月の末日の年月を使って先月の初日を計算
+    first_day_of_last_month = last_day_of_last_month.replace(day=1)
+    return first_day_of_last_month.strftime('%Y-%m-%d')
+
+def get_last_month_last_day():
+    """先月の末日を取得"""
+    today = datetime.date.today()
+    # 今月の1日
+    first_day_of_this_month = today.replace(day=1)
+    # 今月の1日から1日引くと先月の末日
+    last_day_of_last_month = first_day_of_this_month - datetime.timedelta(days=1)
+    return last_day_of_last_month.strftime('%Y-%m-%d')
+
 def parse_args():
     parser = argparse.ArgumentParser(description='AWS Resource Cost Report Generator')
     parser.add_argument(
         '--start-date',
         type=str,
         help='Start date for cost analysis (YYYY-MM-DD)',
-        default=(datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%d')
+        default=get_last_month_first_day()
     )
     parser.add_argument(
         '--end-date',
         type=str,
         help='End date for cost analysis (YYYY-MM-DD)',
-        default=datetime.datetime.now().strftime('%Y-%m-%d')
+        default=get_last_month_last_day()
     )
     parser.add_argument(
         '--regions',
@@ -113,10 +133,10 @@ def main():
         logger.info(f"Collecting cost data from {args.start_date} to {args.end_date}")
         cost_collector = CostExplorerCollector(args.start_date, args.end_date)
         cost_data = cost_collector.collect()
-        
+
         # リソースデータ用の空の辞書を初期化
         resource_data = {}
-        
+
         # AWS課金リソースを検出・収集
         if args.detect_uncovered:
             logger.info("Detecting and collecting billed AWS resources automatically")

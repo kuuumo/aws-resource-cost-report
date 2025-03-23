@@ -1,0 +1,29 @@
+version: '3'
+
+tasks:
+  setup:
+    desc: セットアップ - asdfとvenvを使用した環境構築
+    cmds:
+      - asdf install
+      - rm -rf .venv || true
+      - python -m venv .venv
+      - bash -c '. .venv/bin/activate && pip install -r requirements.txt'
+    silent: false
+
+  run:
+    desc: レポート生成を実行
+    cmds:
+      - bash -c '. .venv/bin/activate && python src/main.py {{.CLI_ARGS}}'
+    silent: false
+
+  update-deps:
+    desc: 依存パッケージを更新
+    cmds:
+      - bash -c '. .venv/bin/activate && pip install -U -r requirements.txt'
+    silent: false
+
+  clean:
+    desc: 生成されたレポートファイルをクリーン
+    cmds:
+      - rm -rf reports/*.md reports/*.html
+    silent: false

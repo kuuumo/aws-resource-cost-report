@@ -20,10 +20,47 @@ AWSのリソース利用状況と費用を定期的に調査し、マークダ�
 - 適切なIAMポリシー設定（Cost Explorer, その他必要なAWSサービスへのアクセス）
 - GitHub ActionsでのOICD認証設定
 - Python 3.6以上
+- asdf（Pythonバージョン管理）
+- Task CLI（タスク実行）
 
-## セットアップ方法
+## セットアップと使用方法
 
-### 1. AWS側の設定 (OIDC認証)
+このプロジェクトはTaskfileを使用して操作を簡素化しています。
+詳細な環境構築手順は[セットアップガイド](setup-guide.md)を参照してください。
+
+### インストールと準備
+
+```bash
+# 1. Task CLIのインストール（Homebrewを使用）
+brew install go-task/tap/go-task
+
+# 2. プロジェクトディレクトリに移動
+cd /path/to/aws-resource-cost-report
+
+# 3. セットアップを実行（asdfとvenvを使用）
+task setup
+```
+
+### プロジェクトの実行
+
+```bash
+# AWSアクセス権がある環境で実行
+task run
+```
+
+### その他のタスク
+
+```bash
+# 依存パッケージの更新
+task update-deps
+
+# 生成されたレポートファイルのクリーンアップ
+task clean
+```
+
+生成されたレポートは `reports/` ディレクトリに保存されます。
+
+### AWS側の設定 (OIDC認証)
 
 GitHub ActionsからAWSリソースへ安全にアクセスするために、OIDC (OpenID Connect) 認証を設定します。
 
@@ -67,7 +104,7 @@ GitHub ActionsからAWSリソースへ安全にアクセスするために、OID
 6. ロール名（例: `GitHubActionsAWSReportRole`）を入力し、ロールを作成します。
 7. 作成したロールのARNをメモします（例: `arn:aws:iam::123456789012:role/GitHubActionsAWSReportRole`）。
 
-### 2. GitHubリポジトリの設定
+### GitHubリポジトリの設定
 
 1. このリポジトリをクローンまたはフォークします。
 2. GitHub リポジトリの `Settings > Secrets and variables > Actions` に移動します。
@@ -76,22 +113,6 @@ GitHub ActionsからAWSリソースへ安全にアクセスするために、OID
    - `AWS_REGION`: 使用するAWSリージョン（例：`ap-northeast-1`）
 
 4. 必要に応じて `.github/workflows/generate-report.yml` ファイルの実行スケジュールを調整します。
-
-## 使用方法
-
-### 手動実行
-
-1. 以下のコマンドを実行してスクリプトを手動で実行します：
-
-```bash
-# AWSアクセス権がある環境で実行
-python src/main.py
-
-# ローカル開発環境でテスト実行（AWS API呼び出しなし、ダミーデータを使用）
-python src/main.py --local
-```
-
-2. `reports/` ディレクトリに生成されたレポートを確認します。
 
 ### GitHub Actionsによる自動実行
 
@@ -133,13 +154,11 @@ python src/main.py --local
 
 ## トラブルシューティング
 
-### ローカル実行時の問題
+### 実行に関する問題
 
-- Python依存パッケージがインストールされていない場合は、以下のコマンドでインストールしてください：
-  ```bash
-  pip install boto3 pyyaml
-  ```
-- ローカルテストモード (`--local` オプション) を使用すれば、AWS認証情報なしでもテスト実行できます。
+- 依存パッケージの問題がある場合は、`task update-deps` を実行してください。
+- 環境に問題がある場合は、`task setup` を再実行してください。
+- その他の一般的な問題については[セットアップガイド](setup-guide.md)のトラブルシューティングセクションを参照してください。
 
 ### OIDC認証の問題
 
