@@ -81,13 +81,14 @@ class UncoveredResourcesDetector:
     
     def detect(self):
         """
-        課金されているが収集対象に含まれていないリソースを検出
+        課金されているが収集対象に含まれていないリソースを検出し、
+        可能であれば自動的に収集する
         
         Returns:
-            dict: 未カバーリソースの情報と推定コスト
+            dict: 未カバーリソースの情報と取得したリソースデータ
         """
         try:
-            logger.info("Detecting uncovered resources with significant costs...")
+            logger.info("Detecting and collecting billed resources...")
             
             # サービス別のコスト内訳を取得
             service_costs = self._get_service_costs()
@@ -95,16 +96,33 @@ class UncoveredResourcesDetector:
             # リソースタイプ別のコスト内訳を取得
             usage_type_costs = self._get_usage_type_costs()
             
-            # 未カバーリソースの検出
+            # 課金されているサービスの一覧を取得
+            billed_services = [service['service_name'] for service in service_costs]
+            logger.info(f"Found {len(billed_services)} billed services")
+            
+            # 各サービスのリソース情報を収集
+            collected_resources = self._collect_billed_resources(billed_services)
+            
+            # それでも収集できなかったリソースを検出
             uncovered_resources = self._detect_uncovered_resources(service_costs, usage_type_costs)
             
-            return uncovered_resources
+            # 結果を統合
+            result = {
+                'billed_services': billed_services,
+                'collected_resources': collected_resources,
+                'uncovered_resources': uncovered_resources.get('uncovered_resources', []),
+                'total_uncovered_cost': uncovered_resources.get('total_uncovered_cost', 0.0),
+                'currency': uncovered_resources.get('currency', 'USD')
+            }
+            
+            return result
             
         except Exception as e:
-            logger.error(f"Error detecting uncovered resources: {e}", exc_info=True)
+            logger.error(f"Error detecting billed resources: {e}", exc_info=True)
             return {
-                'uncovered_services': [],
-                'uncovered_usage_types': [],
+                'billed_services': [],
+                'collected_resources': {},
+                'uncovered_resources': [],
                 'total_uncovered_cost': 0.0,
                 'currency': 'USD'
             }
@@ -328,6 +346,110 @@ class UncoveredResourcesDetector:
             return ['dynamodb_tables']
         elif 'elb' in usage_type_lower or 'loadbalancer' in usage_type_lower:
             return ['load_balancers']
+        elif 'eks' in usage_type_lower or 'kubernetes' in usage_type_lower:
+            return ['eks_clusters']
+        elif 'ecs' in usage_type_lower or 'container' in usage_type_lower:
+            return ['ecs_clusters']
+        elif 'gateway' in usage_type_lower or 'apigw' in usage_type_lower:
+            return ['api_gateways']
+        elif 'route53' in usage_type_lower or 'dns' in usage_type_lower:
+            return ['route53_resources']
+        elif 'redshift' in usage_type_lower:
+            return ['redshift_clusters']
+        elif 'sagemaker' in usage_type_lower:
+            return ['sagemaker_resources']
+        elif 'sns' in usage_type_lower:
+            return ['sns_topics']
+        elif 'sqs' in usage_type_lower:
+            return ['sqs_queues']
+        elif 'kinesis' in usage_type_lower:
+            return ['kinesis_streams']
+        elif 'glue' in usage_type_lower:
+            return ['glue_resources']
+        elif 'cloudfront' in usage_type_lower:
+            return ['cloudfront_distributions']
+        elif 'efs' in usage_type_lower:
+            return ['efs_filesystems']
         
         # 未知の使用タイプの場合は空リストを返す
         return []
+        
+    def _collect_billed_resources(self, billed_services):
+        """
+        課金されているサービスのリソース情報を動的に収集
+        
+        Args:
+            billed_services (list): 課金されているサービス名のリスト
+            
+        Returns:
+            dict: 収集したリソース情報
+        """
+        result = {}
+        
+        # リージョン情報を取得
+        session = boto3.Session()
+        regions = session.get_available_regions('ec2')
+        
+        # サービス名からリソースタイプと収集メソッドを推定・実行
+        for service_name in billed_services:
+            resource_types = self._get_resource_type_from_service(service_name)
+            
+            if not resource_types:
+                logger.warning(f"Unknown resource type for service: {service_name}")
+                continue
+            
+            for resource_type in resource_types:
+                # すでに収集済みのリソースタイプはスキップ
+                if resource_type in result:
+                    continue
+                
+                # リソースタイプに応じた収集メソッドを呼び出し
+                collection_method = self._get_collection_method(resource_type)
+                if collection_method:
+                    try:
+                        logger.info(f"Collecting {resource_type} for service: {service_name}")
+                        resources = collection_method(regions)
+                        result[resource_type] = resources
+                        logger.info(f"Collected {len(resources) if not isinstance(resources, dict) else 'multiple'} {resource_type}")
+                    except Exception as e:
+                        logger.error(f"Error collecting {resource_type}: {e}")
+                else:
+                    logger.warning(f"No collection method available for resource type: {resource_type}")
+        
+        return result
+    
+    def _get_collection_method(self, resource_type):
+        """
+        リソースタイプに応じた収集メソッドを返す
+        
+        Args:
+            resource_type (str): リソースタイプ名
+            
+        Returns:
+            function: 収集メソッド
+        """
+        # リソースタイプと収集メソッドのマッピング
+        collection_methods = {
+            'ec2_instances': self._collect_ec2_instances,
+            'ebs_volumes': self._collect_ebs_volumes,
+            'rds_instances': self._collect_rds_instances,
+            's3_buckets': self._collect_s3_buckets,
+            'elasticache_clusters': self._collect_elasticache_clusters,
+            'load_balancers': self._collect_load_balancers,
+            'dynamodb_tables': self._collect_dynamodb_tables,
+            'lambda_functions': self._collect_lambda_functions,
+            'ecs_clusters': self._collect_ecs_clusters,
+            'eks_clusters': self._collect_eks_clusters,
+            'cloudfront_distributions': self._collect_cloudfront,
+            'efs_filesystems': self._collect_efs,
+            'api_gateways': self._collect_api_gateway,
+            'route53_resources': self._collect_route53,
+            'redshift_clusters': self._collect_redshift,
+            'sagemaker_resources': self._collect_sagemaker,
+            'sns_topics': self._collect_sns,
+            'sqs_queues': self._collect_sqs,
+            'kinesis_streams': self._collect_kinesis,
+            'glue_resources': self._collect_glue
+        }
+        
+        return collection_methods.get(resource_type)

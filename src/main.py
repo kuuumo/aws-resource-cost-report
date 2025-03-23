@@ -9,7 +9,6 @@ import yaml
 from pathlib import Path
 
 from collectors.cost_explorer import CostExplorerCollector
-from collectors.resource_explorer import ResourceExplorerCollector
 from collectors.uncovered_resources_detector import UncoveredResourcesDetector
 from report_generator import ReportGenerator
 
@@ -54,7 +53,7 @@ def parse_args():
     parser.add_argument(
         '--detect-uncovered',
         action='store_true',
-        help='Detect uncovered resources with significant costs',
+        help='自動的にすべての課金リソースを検出・収集する',
         default=True
     )
     return parser.parse_args()
@@ -115,21 +114,26 @@ def main():
         cost_collector = CostExplorerCollector(args.start_date, args.end_date)
         cost_data = cost_collector.collect()
         
-        # リソースデータを収集
-        logger.info(f"Collecting resource information for regions: {regions}")
-        resource_collector = ResourceExplorerCollector(regions)
-        resource_data = resource_collector.collect()
+        # リソースデータ用の空の辞書を初期化
+        resource_data = {}
         
-        # 未カバーリソースを検出（オプション）
-        uncovered_resources_data = {}
+        # AWS課金リソースを検出・収集
         if args.detect_uncovered:
-            logger.info("Detecting uncovered resources with significant costs")
+            logger.info("Detecting and collecting billed AWS resources automatically")
             detector = UncoveredResourcesDetector(args.start_date, args.end_date, resource_data)
             uncovered_resources_data = detector.detect()
-            logger.info(f"Found {len(uncovered_resources_data.get('uncovered_resources', []))} uncovered resources")
+            logger.info(f"Found {len(uncovered_resources_data.get('billed_services', []))} billed services")
+            
+            # 収集されたリソースデータをマージ
+            collected_resources = uncovered_resources_data.get('collected_resources', {})
+            for resource_type, resources in collected_resources.items():
+                resource_data[resource_type] = resources
+                count = len(resources) if isinstance(resources, list) else 'multiple'
+                logger.info(f"Added {count} {resource_type} resources")
             
             # 未カバーリソースのデータを追加
-            resource_data['uncovered_resources'] = uncovered_resources_data
+            resource_data['uncovered_resources'] = uncovered_resources_data.get('uncovered_resources', [])
+            logger.info(f"Found {len(resource_data['uncovered_resources'])} uncovered resources")
         
         # レポートを生成
         logger.info(f"Generating report to {report_path}")
