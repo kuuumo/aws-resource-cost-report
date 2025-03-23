@@ -2,18 +2,47 @@ version: '3'
 
 tasks:
   setup:
-    desc: セットアップ - asdfとvenvを使用した環境構築
+    desc: セットアップ - 仮想環境と依存パッケージのインストール
     cmds:
-      - asdf install
       - rm -rf .venv || true
       - python -m venv .venv
       - bash -c '. .venv/bin/activate && pip install -r requirements.txt'
     silent: false
 
   run:
-    desc: レポート生成を実行
+    desc: AWSコスト詳細レポート生成を実行
     cmds:
-      - bash -c '. .venv/bin/activate && python src/main.py {{.CLI_ARGS}}'
+      - bash -c '. .venv/bin/activate && python src/aws_cost_report_main.py {{.CLI_ARGS}}'
+    silent: false
+
+  run:console:
+    desc: コンソール形式でレポートを実行 (デフォルト)
+    cmds:
+      - task: run
+    silent: false
+
+  run:csv:
+    desc: CSV形式でレポートを実行
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --format csv --output aws_cost_report_{{now | date "20060102_150405"}}.csv
+    silent: false
+
+  run:html:
+    desc: HTML形式でレポートを実行
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --format html --output aws_cost_report_{{now | date "20060102_150405"}}.html
+    silent: false
+
+  run:all-regions:
+    desc: 全リージョンを検索してレポートを実行
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --all-regions
     silent: false
 
   update-deps:
@@ -25,5 +54,41 @@ tasks:
   clean:
     desc: 生成されたレポートファイルをクリーン
     cmds:
-      - rm -rf reports/*.md reports/*.html
+      - rm -f *.csv *.html service_*.csv
+    silent: false
+
+  test:
+    desc: テストを実行
+    cmds:
+      - bash -c '. .venv/bin/activate && pytest'
+    silent: false
+
+  lint:
+    desc: コードリンティングを実行
+    cmds:
+      - bash -c '. .venv/bin/activate && flake8 src/'
+    silent: false
+
+  format:
+    desc: コードフォーマッティングを実行
+    cmds:
+      - bash -c '. .venv/bin/activate && autoflake --remove-all-unused-imports --recursive --in-place src/ && isort src/ && black src/'
+    silent: false
+
+  isort:
+    desc: インポート文の整理を実行
+    cmds:
+      - bash -c '. .venv/bin/activate && isort src/'
+    silent: false
+
+  autoflake:
+    desc: 未使用のインポートを削除
+    cmds:
+      - bash -c '. .venv/bin/activate && autoflake --remove-all-unused-imports --recursive --in-place src/'
+    silent: false
+
+  install-dev:
+    desc: 開発用依存パッケージをインストール
+    cmds:
+      - bash -c '. .venv/bin/activate && pip install -r requirements-dev.txt'
     silent: false

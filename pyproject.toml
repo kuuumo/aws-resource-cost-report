@@ -1,0 +1,10 @@
+[tool.isort]
+profile = "black"
+line_length = 88
+remove_redundant_aliases = true
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''/(\..+)/'''

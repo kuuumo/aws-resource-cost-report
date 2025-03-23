@@ -1,172 +1,264 @@
-# AWS リソース・コスト レポート
+# AWS コスト詳細レポート
 
-AWSのリソース利用状況と費用を定期的に調査し、マークダウン形式でレポートを生成するツールです。
+AWSの利用コストを細かく把握するためのツールです。すべてのサービスとインスタンスごとのコスト情報を収集し、Nameタグを使って分かりやすくレポートします。
 
-## 概要
+## 特徴
 
-本ツールは以下の機能を提供します：
+- AWS Cost Explorer APIを使用して **課金されているすべてのサービス** を自動検出
+- リソースIDを抽出し、**Nameタグ** と紐付けて表示
+- 複数のAWSリージョンをカバー（全リージョン対応可能）
+- コンソール、CSV、HTML形式での出力に対応
+- 直感的なコマンドライン操作
 
-- AWS Cost Explorer APIを使用して、課金されているすべてのサービスとリソースごとのコスト情報を自動検出・取得
-- 検出されたリソースに対して適切なAWS SDKを使って詳細情報を動的に収集
-- 取得したデータを分析し、リソースタイプ、インスタンスタイプ、リージョンごとのコスト分析
-- 定期的なレポート生成（GitHub Actionsによる自動実行）
-- マークダウン形式でのレポート出力
+## 対応サービス
 
-本ツールの特徴として、**明示的に指定していないAWSサービスも自動的に検出・収集**するため、見過ごされがちなリソースも可視化できます。
+このツールは、課金されているすべてのAWSサービスを自動的に検出し、以下のサービスについては詳細なNameタグ情報も収集します：
 
-## 前提条件
+- EC2インスタンス
+- EBSボリューム
+- セキュリティグループ
+- VPC関連リソース
+- RDSインスタンス/クラスター
+- S3バケット
+- Lambda関数
+- DynamoDBテーブル
+- Elastic Load Balancer (ELB, ALB, NLB)
+- ECSクラスター/タスク
+- ElastiCache
+- CloudFront
+- SQS
+- SNS
+- API Gateway
+- その他のAWSサービス
 
-- AWSアカウントへのアクセス権限（ローカルテストモードの場合は不要）
-- 適切なIAMポリシー設定（Cost Explorer, その他必要なAWSサービスへのアクセス）
-- GitHub ActionsでのOICD認証設定
+## インストール方法
+
+### 必要条件
+
 - Python 3.6以上
-- asdf（Pythonバージョン管理）
-- Task CLI（タスク実行）
+- AWS認証情報（~/.aws/credentials または環境変数）
+- 以下のIAM権限：
+  - Cost Explorer API（`ce:GetCostAndUsage`）
+  - 各種AWSサービスの読み取り権限
+- [Task](https://taskfile.dev/) コマンドラインツール
 
-## セットアップと使用方法
-
-このプロジェクトはTaskfileを使用して操作を簡素化しています。
-詳細な環境構築手順は[セットアップガイド](setup-guide.md)を参照してください。
-
-### インストールと準備
+### セットアップ
 
 ```bash
-# 1. Task CLIのインストール（Homebrewを使用）
-brew install go-task/tap/go-task
+# リポジトリをクローン
+git clone https://github.com/yourusername/aws-resource-cost-report.git
+cd aws-resource-cost-report
 
-# 2. プロジェクトディレクトリに移動
-cd /path/to/aws-resource-cost-report
-
-# 3. セットアップを実行（asdfとvenvを使用）
+# セットアップを実行
 task setup
 ```
 
-### プロジェクトの実行
+## 使い方
+
+### 基本的な使い方
 
 ```bash
-# AWSアクセス権がある環境で実行
+# デフォルト（コンソール形式）でレポートを実行
 task run
+
+# または
+task run:console
+
+# CSV形式でレポートを生成（タイムスタンプ付きファイル名）
+task run:csv
+
+# HTML形式でレポートを生成（タイムスタンプ付きファイル名）
+task run:html
+
+# 全リージョンのリソースを検索（より詳細だが時間がかかる）
+task run:all-regions
+
+# カスタム引数を使用して実行
+task run -- --days 90 --format html --output custom_report.html
 ```
 
 ### その他のタスク
 
 ```bash
-# 依存パッケージの更新
+# 依存パッケージを更新
 task update-deps
 
-# 生成されたレポートファイルのクリーンアップ
+# 生成されたレポートファイルを削除
 task clean
+
+# 開発用のセットアップ（テストやリンティングツールをインストール）
+task install-dev
+
+# テストを実行
+task test
+
+# コードリンティング
+task lint
+
+# コードフォーマット
+task format
 ```
 
-生成されたレポートは `reports/` ディレクトリに保存されます。
+## AWS認証設定
 
-### AWS側の設定 (OIDC認証)
+このツールはAWSリソースにアクセスするため、適切な認証設定が必要です。
 
-GitHub ActionsからAWSリソースへ安全にアクセスするために、OIDC (OpenID Connect) 認証を設定します。
+### IAMユーザー認証情報の設定（ローカル実行用）
 
-#### IAMアイデンティティプロバイダーの作成
+1. AWSコンソールでIAMユーザーを作成し、以下の権限を付与します：
+   - ReadOnlyAccess (基本的な読み取り権限)
+   - `ce:GetCostAndUsage` (Cost Explorer API用)
 
-1. AWSコンソールにログインし、IAMコンソールに移動します。
-2. 左側のナビゲーションメニューから「アイデンティティプロバイダー」を選択します。
-3. 「プロバイダーを追加」をクリックし、以下の情報を入力します:
-   - プロバイダータイプ: OpenID Connect
-   - プロバイダーのURL: `https://token.actions.githubusercontent.com`
-   - 対象者: `sts.amazonaws.com`
-4. 「プロバイダーを追加」をクリックして保存します。
+2. AWS CLIを使用して認証情報を設定：
 
-#### IAMロールの作成
-
-1. IAMコンソールから「ロール」を選択し、「ロールの作成」をクリックします。
-2. 信頼されたエンティティタイプとして「ウェブアイデンティティ」を選択します。
-3. 以下の情報を設定します:
-   - アイデンティティプロバイダー: `token.actions.githubusercontent.com`
-   - 対象者: `sts.amazonaws.com`
-   - GitHub組織/リポジトリ: あなたのリポジトリパス（例: `your-org/aws-resource-cost-report`）
-4. 「次へ」をクリックし、以下のAWSマネージドポリシーをアタッチします:
-   - `ReadOnlyAccess`（基本的な読み取り権限として）
-5. さらに、以下のカスタムポリシーを作成してアタッチします（Cost Explorerへのアクセス用）:
-
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": [
-           "ce:GetCostAndUsage"
-         ],
-         "Resource": "*"
-       }
-     ]
-   }
+   ```bash
+   aws configure
    ```
 
-6. ロール名（例: `GitHubActionsAWSReportRole`）を入力し、ロールを作成します。
-7. 作成したロールのARNをメモします（例: `arn:aws:iam::123456789012:role/GitHubActionsAWSReportRole`）。
+   プロンプトに従ってアクセスキーID、シークレットアクセスキー、リージョン（例：`ap-northeast-1`）を入力します。
 
-### GitHubリポジトリの設定
+3. または環境変数で設定：
 
-1. このリポジトリをクローンまたはフォークします。
-2. GitHub リポジトリの `Settings > Secrets and variables > Actions` に移動します。
-3. 「Variables」タブで以下の変数を追加します：
-   - `AWS_ROLE_ARN`: 上記で作成したIAMロールのARN
-   - `AWS_REGION`: 使用するAWSリージョン（例：`ap-northeast-1`）
+   ```bash
+   export AWS_ACCESS_KEY_ID=あなたのアクセスキー
+   export AWS_SECRET_ACCESS_KEY=あなたのシークレットキー
+   export AWS_DEFAULT_REGION=ap-northeast-1
+   ```
 
-4. 必要に応じて `.github/workflows/generate-report.yml` ファイルの実行スケジュールを調整します。
+### 必要最小限のIAMポリシー
 
-### GitHub Actionsによる自動実行
+以下は推奨される最小権限ポリシーです：
 
-- デフォルトでは毎週月曜日の午前9時（UTC）に自動実行されます。
-- GitHub リポジトリの "Actions" タブから手動で実行することもできます。
-- 生成されたレポートは `reports/` ディレクトリに保存され、コミットされます。
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ec2:DescribeInstances",
+        "ec2:DescribeTags",
+        "ec2:DescribeRegions",
+        "rds:DescribeDBInstances",
+        "rds:DescribeDBClusters",
+        "rds:ListTagsForResource",
+        "s3:ListBuckets",
+        "s3:GetBucketTagging",
+        "lambda:ListFunctions",
+        "lambda:ListTags",
+        "dynamodb:ListTables",
+        "dynamodb:DescribeTable",
+        "dynamodb:ListTagsOfResource",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeTags",
+        "ecs:ListClusters",
+        "ecs:DescribeClusters",
+        "ecs:ListTaskDefinitions",
+        "ecs:DescribeTaskDefinition",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:ListTagsForResource",
+        "cloudfront:ListDistributions",
+        "cloudfront:ListTagsForResource",
+        "sqs:ListQueues",
+        "sqs:ListQueueTags",
+        "sns:ListTopics",
+        "sns:ListTagsForResource",
+        "apigateway:GET"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ## レポートの内容
 
 生成されるレポートには以下の情報が含まれます：
 
-1. **概要**
-   - 総コスト
-   - 前月比
-   - 最もコストがかかっているサービス・リソース
-
-2. **サービス別コスト内訳**
-   - EC2, RDS, S3などのサービス別コスト
-   - 前月比の増減
-
-3. **リソース詳細**
-   - 検出されたすべてのAWSリソースの情報（EC2、RDS、S3、DynamoDB、Lambda、ECS、EKSなど）
-   - インスタンスタイプ、リージョン、ステータスなどの詳細情報
-   - 利用開始日
-   - 月間コスト
-
-4. **コスト最適化の推奨事項**
-   - 低利用リソースの特定
-   - コスト削減のための推奨事項
-
-5. **未カバーリソース**
-   - 課金されているが詳細情報を収集できないリソースのリスト
-   - 対応する推定コスト
+- **サービス概要**: AWS課金サービス別の総コスト
+- **リソース詳細**:
+  - サービス名
+  - 使用タイプ
+  - リソースID
+  - Nameタグ
+  - 月額コスト
 
 ## カスタマイズ
 
-- `config.yml` ファイルを編集することで、レポートの内容やフォーマットをカスタマイズできます。
-- 追加のAWSサービスも自動的に検出・収集されますが、特定のサービスの詳細な情報を収集したい場合は、`src/collectors/uncovered_resources_detector.py`に収集メソッドを追加することができます。
+`config.yml` ファイルを編集することで、基本的な動作をカスタマイズできます：
+
+```yaml
+# AWS リージョン設定
+regions:
+  # 対象リージョン（カンマ区切り、または'all'）
+  include: "all"
+  # 除外リージョン（カンマ区切り）
+  exclude: ""
+
+# コスト分析設定
+cost_analysis:
+  # リソースのタグ情報を収集する
+  collect_tags: true
+  # タグ情報収集時の同時実行数
+  tag_collection_threads: 10
+
+# 出力設定
+output:
+  # デフォルト出力形式（console, csv, html）
+  default_format: "console"
+  # HTMLレポートのスタイル設定
+  html_style:
+    # 背景色
+    background_color: "#ffffff"
+    # テーブルヘッダーの背景色
+    header_color: "#f2f2f2"
+```
+
+## アーキテクチャ
+
+このツールは、以下のコンポーネントで構成されています：
+
+- **Core**: 基本クラスとユーティリティ
+  - `AWSCostReport`: メインのレポートクラス
+  - `ResourceIdExtractor`: リソースID抽出ユーティリティ
+  - `AWSRegionManager`: リージョン管理
+  - `DataProcessor`: データ処理
+
+- **Collectors**: データ収集
+  - `CostExplorerCollector`: AWS Cost Explorerからコストデータを収集
+  - `TagCollector`: AWSリソースからNameタグを収集
+
+- **Formatters**: 出力形式
+  - `OutputFormatter`: コンソール、CSV、HTML形式でのレポート出力
+
+## ヒントとコツ
+
+- **初回実行時間**: タグ収集処理のため、初回実行は数分かかる場合があります
+- **メモリ使用量**: 大規模なAWSアカウントでは、メモリ使用量が増加することがあります
+- **コスト最適化**: `--all-regions`オプションを使用すると、より多くのリソースが見つかりますが、実行時間は長くなります
 
 ## トラブルシューティング
 
-### 実行に関する問題
+### 「ボーリングレート超過」エラー
 
-- 依存パッケージの問題がある場合は、`task update-deps` を実行してください。
-- 環境に問題がある場合は、`task setup` を再実行してください。
-- その他の一般的な問題については[セットアップガイド](setup-guide.md)のトラブルシューティングセクションを参照してください。
+```text
+botocore.exceptions.ClientError: An error occurred (RequestLimitExceeded)
+```
 
-### OIDC認証の問題
+解決策: プログラムを再実行してください。AWS APIには制限があり、複数のリージョンで多くのリソースを検索する場合に発生することがあります。
 
-GitHub Actionsでの認証に問題がある場合:
+### リソースIDが見つからない
 
-1. IAMロールの信頼関係ポリシーが正しく設定されているか確認します。
-2. リポジトリ変数 `AWS_ROLE_ARN` と `AWS_REGION` が正しく設定されているか確認します。
-3. ワークフローの権限設定 (`permissions`) が正しいか確認します。
+一部のリソースでは、Cost ExplorerのデータからリソースIDを抽出できないことがあります。この場合、リソースIDと名前タグは空になります。
+
+### 認証エラー
+
+```text
+botocore.exceptions.NoCredentialsError: Unable to locate credentials
+```
+
+解決策: AWS認証情報が正しく設定されているか確認してください。`aws configure`コマンドを実行するか、環境変数を設定してください。
 
 ## ライセンス
 
