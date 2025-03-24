@@ -10,39 +10,46 @@ tasks:
     silent: false
 
   run:
-    desc: AWSコスト詳細レポート生成を実行
+    desc: AWSリソース棚卸しツールを実行
     cmds:
-      - bash -c '. .venv/bin/activate && python src/aws_cost_report_main.py {{.CLI_ARGS}}'
-    silent: false
-
-  run:console:
-    desc: コンソール形式でレポートを実行 (デフォルト)
-    cmds:
-      - task: run
+      - bash -c '. .venv/bin/activate && python src/main.py {{.CLI_ARGS}}'
     silent: false
 
   run:csv:
-    desc: CSV形式でレポートを実行
+    desc: CSV形式のみでリソース棚卸しを実行
     cmds:
       - task: run
         vars:
-          CLI_ARGS: --format csv --output aws_cost_report_{{now | date "20060102_150405"}}.csv
+          CLI_ARGS: --format csv
     silent: false
 
-  run:html:
-    desc: HTML形式でレポートを実行
+  run:json:
+    desc: JSON形式のみでリソース棚卸しを実行
     cmds:
       - task: run
         vars:
-          CLI_ARGS: --format html --output aws_cost_report_{{now | date "20060102_150405"}}.html
+          CLI_ARGS: --format json
     silent: false
 
-  run:all-regions:
-    desc: 全リージョンを検索してレポートを実行
+  run:both:
+    desc: CSV+JSON形式で棚卸しを実行（デフォルト）
     cmds:
       - task: run
         vars:
-          CLI_ARGS: --all-regions
+          CLI_ARGS: --format both
+    silent: false
+
+  run:region:
+    desc: 特定のリージョンで棚卸しを実行
+    cmds:
+      - task: run -- --region {{.REGION}}
+
+  run:profile:
+    desc: 特定のAWSプロファイルで棚卸しを実行
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --profile {{.PROFILE}}
     silent: false
 
   update-deps:
@@ -54,7 +61,7 @@ tasks:
   clean:
     desc: 生成されたレポートファイルをクリーン
     cmds:
-      - rm -f *.csv *.html service_*.csv
+      - rm -rf output/*
     silent: false
 
   test:
@@ -91,4 +98,34 @@ tasks:
     desc: 開発用依存パッケージをインストール
     cmds:
       - bash -c '. .venv/bin/activate && pip install -r requirements-dev.txt'
+    silent: false
+
+  examples:
+    desc: 使用例を表示
+    cmds:
+      - echo "# AWS リソース棚卸しツール使用例"
+      - echo "task run               # デフォルト設定で実行"
+      - echo "task run:csv           # CSV形式のみで出力"
+      - echo "task run:json          # JSON形式のみで出力"
+      - echo "task run:region REGION=ap-northeast-1   # 東京リージョンで実行"
+      - echo "task run:profile PROFILE=production     # 本番環境プロファイルで実行"
+      - echo "task run -- --profile production --region ap-northeast-1   # カスタムパラメータ指定"
+    silent: false
+
+  list-services:
+    desc: 対応しているサービス一覧を表示
+    cmds:
+      - echo "# AWS リソース棚卸しツール - 対応サービス一覧"
+      - echo "- Amazon EC2（インスタンス、ボリューム、セキュリティグループ、ロードバランサーなど）"
+      - echo "- Amazon S3（バケット）"
+      - echo "- Amazon RDS（DBインスタンス、DBクラスター、スナップショットなど）"
+      - echo "- AWS Lambda（関数、レイヤー、イベントソースマッピング）"
+      - echo "- Amazon DynamoDB（テーブル、グローバルテーブル、バックアップ）"
+      - echo "- Amazon CloudFront（ディストリビューション、キャッシュポリシーなど）"
+      - echo "- Amazon Route 53（ホストゾーン、ヘルスチェック、ドメインなど）"
+      - echo "- AWS IAM（ユーザー、グループ、ロール、ポリシーなど）"
+      - echo "- Amazon CloudWatch（アラーム、ダッシュボード、ロググループ、イベントルール）"
+      - echo "- Amazon ElastiCache（クラスター、レプリケーショングループなど）"
+      - echo "- Amazon SNS（トピック、サブスクリプション）"
+      - echo "- Amazon SQS（キュー）"
     silent: false
