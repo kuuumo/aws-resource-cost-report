@@ -1,0 +1,64 @@
+{
+  "cost_thresholds": {
+    "total": {
+      "warning": 1000,
+      "critical": 2000
+    },
+    "services": {
+      "EC2": {
+        "warning": 300,
+        "critical": 600
+      },
+      "RDS": {
+        "warning": 200,
+        "critical": 400
+      },
+      "S3": {
+        "warning": 100,
+        "critical": 200
+      },
+      "CloudFront": {
+        "warning": 50,
+        "critical": 100
+      },
+      "Lambda": {
+        "warning": 30,
+        "critical": 60
+      }
+    }
+  },
+  "resource_count_thresholds": {
+    "EC2_Instances": {
+      "warning": 10,
+      "critical": 20
+    },
+    "RDS_Instances": {
+      "warning": 5,
+      "critical": 10
+    },
+    "Lambda_Functions": {
+      "warning": 50,
+      "critical": 100
+    },
+    "S3_Buckets": {
+      "warning": 20,
+      "critical": 50
+    }
+  },
+  "growth_rate_thresholds": {
+    "monthly_cost": {
+      "warning": 20,
+      "critical": 50
+    },
+    "resource_count": {
+      "warning": 30,
+      "critical": 100
+    }
+  },
+  "unused_resource_thresholds": {
+    "ec2_idle_days": 7,
+    "s3_no_access_days": 90,
+    "rds_low_connections_days": 14,
+    "ebs_unattached_days": 3
+  }
+}

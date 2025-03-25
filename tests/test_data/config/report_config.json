@@ -1,0 +1,7 @@
+{
+  "report_formats": ["markdown", "html"],
+  "show_cost_info": true,
+  "include_graphs": true,
+  "graph_formats": ["png"],
+  "detail_level": "medium"
+}

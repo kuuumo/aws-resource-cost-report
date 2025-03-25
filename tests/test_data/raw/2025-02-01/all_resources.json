@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "timestamp": "2025-02-01T12:00:00+09:00",
+    "resource_counts": {
+      "EC2_Instances": 2,
+      "S3_Buckets": 2
+    },
+    "total_resources": 4
+  },
+  "resources": {
+    "EC2_Instances": [
+      {
+        "ResourceId": "i-001122334455aabb",
+        "ResourceName": "WebServer01",
+        "ResourceType": "EC2_Instances",
+        "AZ": "ap-northeast-1a",
+        "VpcId": "vpc-11223344",
+        "Tags": [
+          {"Key": "Name", "Value": "WebServer01"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Project", "Value": "MainApp"}
+        ],
+        "InstanceType": "t3.large",
+        "State": "running"
+      },
+      {
+        "ResourceId": "i-aabbccddee112233",
+        "ResourceName": "DBServer01",
+        "ResourceType": "EC2_Instances",
+        "AZ": "ap-northeast-1b",
+        "VpcId": "vpc-11223344",
+        "Tags": [
+          {"Key": "Name", "Value": "DBServer01"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Project", "Value": "MainApp"}
+        ],
+        "InstanceType": "t3.xlarge",
+        "State": "running"
+      }
+    ],
+    "S3_Buckets": [
+      {
+        "ResourceId": "example-assets-bucket",
+        "ResourceName": "example-assets-bucket",
+        "ResourceType": "S3_Buckets",
+        "AZ": "ap-northeast-1",
+        "Tags": [
+          {"Key": "Name", "Value": "AssetsBucket"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Department", "Value": "Marketing"}
+        ],
+        "CreationDate": "2024-01-15T09:00:00Z"
+      },
+      {
+        "ResourceId": "example-logs-bucket",
+        "ResourceName": "example-logs-bucket",
+        "ResourceType": "S3_Buckets",
+        "AZ": "ap-northeast-1",
+        "Tags": [
+          {"Key": "Name", "Value": "LogsBucket"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Department", "Value": "Operations"}
+        ],
+        "CreationDate": "2024-01-16T09:00:00Z"
+      }
+    ]
+  }
+}

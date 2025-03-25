@@ -1,0 +1,34 @@
+{
+  "report_formats": ["markdown", "html"],
+  "show_cost_info": true,
+  "include_graphs": true,
+  "graph_formats": ["png"],
+  "detail_level": "medium",
+  "cost_thresholds": {
+    "warning": 500,
+    "critical": 1000
+  },
+  "resource_change_alerts": {
+    "new_resources": true,
+    "removed_resources": true,
+    "modified_resources": true
+  },
+  "email_notification": {
+    "enabled": false,
+    "recipients": [],
+    "smtp_server": "",
+    "smtp_port": 587,
+    "smtp_username": "",
+    "smtp_password": ""
+  },
+  "visualization": {
+    "color_scheme": "blue",
+    "show_annotations": true,
+    "chart_type": "bar"
+  },
+  "export_settings": {
+    "csv_enabled": true,
+    "json_enabled": true,
+    "html_enabled": true
+  }
+}

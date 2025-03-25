@@ -6,7 +6,9 @@ CloudWatch情報収集モジュール
 """
 
 import logging
+import time
 from typing import Dict, List, Any
+from botocore.exceptions import ClientError
 from .base_collector import BaseCollector
 
 # ロギングの設定
@@ -73,21 +75,25 @@ class CloudWatchCollector(BaseCollector):
                 for alarm in page.get('MetricAlarms', []):
                     alarm_name = alarm.get('AlarmName', '名前なし')
                     
-                    # タグの取得はスキップして空のタグリストを使用
-                    # CloudWatchアラームのタグ取得には権限の問題がある可能性があるため
+                    # タグの取得を試みる
                     tags = []
-                    
-                    # 以下のコードはコメントアウト（将来的に必要になった場合のために残しておく）
-                    """
                     try:
                         if 'AlarmArn' in alarm:
                             tag_response = cloudwatch_client.list_tags_for_resource(
                                 ResourceARN=alarm['AlarmArn']
                             )
                             tags = tag_response.get('Tags', [])
+                    except ClientError as e:
+                        # AccessDenied等の権限エラーの場合は、空のタグリストを使用して続行
+                        error_code = e.response.get('Error', {}).get('Code', '')
+                        if error_code in ['AccessDenied', 'UnauthorizedOperation', 'InvalidParameterValue']:
+                            logger.warning(f"CloudWatchアラーム '{alarm_name}' のタグ取得エラー（権限不足）: {str(e)}")
+                        else:
+                            # 不明なエラーの場合は例外を再発生
+                            logger.warning(f"CloudWatchアラーム '{alarm_name}' のタグ取得エラー: {str(e)}")
                     except Exception as e:
-                        logger.warning(f"CloudWatchアラーム '{alarm_name}' のタグ取得エラー: {str(e)}")
-                    """
+                        # その他のエラーの場合は警告を出して空のタグリストを使用
+                        logger.warning(f"CloudWatchアラーム '{alarm_name}' のタグ取得中に未知のエラー発生: {str(e)}")
                     
                     # アラーム情報を追加
                     alarms.append({
@@ -114,21 +120,25 @@ class CloudWatchCollector(BaseCollector):
                 for alarm in page.get('CompositeAlarms', []):
                     alarm_name = alarm.get('AlarmName', '名前なし')
                     
-                    # タグの取得はスキップして空のタグリストを使用
-                    # CloudWatch複合アラームのタグ取得には権限の問題がある可能性があるため
+                    # タグの取得を試みる
                     tags = []
-                    
-                    # 以下のコードはコメントアウト（将来的に必要になった場合のために残しておく）
-                    """
                     try:
                         if 'AlarmArn' in alarm:
                             tag_response = cloudwatch_client.list_tags_for_resource(
                                 ResourceARN=alarm['AlarmArn']
                             )
                             tags = tag_response.get('Tags', [])
+                    except ClientError as e:
+                        # AccessDenied等の権限エラーの場合は、空のタグリストを使用して続行
+                        error_code = e.response.get('Error', {}).get('Code', '')
+                        if error_code in ['AccessDenied', 'UnauthorizedOperation', 'InvalidParameterValue']:
+                            logger.warning(f"CloudWatch複合アラーム '{alarm_name}' のタグ取得エラー（権限不足）: {str(e)}")
+                        else:
+                            # 不明なエラーの場合は例外を再発生
+                            logger.warning(f"CloudWatch複合アラーム '{alarm_name}' のタグ取得エラー: {str(e)}")
                     except Exception as e:
-                        logger.warning(f"CloudWatch複合アラーム '{alarm_name}' のタグ取得エラー: {str(e)}")
-                    """
+                        # その他のエラーの場合は警告を出して空のタグリストを使用
+                        logger.warning(f"CloudWatch複合アラーム '{alarm_name}' のタグ取得中に未知のエラー発生: {str(e)}")
                     
                     # 複合アラーム情報を追加
                     alarms.append({
@@ -190,36 +200,26 @@ class CloudWatchCollector(BaseCollector):
                 for group in page.get('logGroups', []):
                     group_name = group.get('logGroupName', '名前なし')
                     
-                    # タグの取得はスキップして空のタグリストを使用
-                    # CloudWatch Logsロググループのタグ取得には権限の問題がある可能性があるため
+                    # タグの取得を試みる
                     tags = []
-                    
-                    # 以下のコードはコメントアウト（将来的に必要になった場合のために残しておく）
-                    """
                     try:
-                        # ARNを手動で構築する
-                        # APIからARNが返されない場合があるため、自分で構築する
-                        if 'arn' in group:
-                            log_group_arn = group['arn']
-                        else:
-                            # AWS アカウントIDとリージョンを取得
-                            sts_client = self.get_client('sts')
-                            account_id = sts_client.get_caller_identity()['Account']
-                            region = logs_client.meta.region_name
-                            
-                            # ARNを構築
-                            log_group_name = group.get('logGroupName', '')
-                            # CloudWatch Logs ARN形式: arn:aws:logs:region:account-id:log-group:log-group-name:*
-                            log_group_arn = f'arn:aws:logs:{region}:{account_id}:log-group:{log_group_name}:*'
-                            
-                        tag_response = logs_client.list_tags_for_resource(
-                            resourceArn=log_group_arn
+                        # CloudWatch Logs はARNが必要なく、ロググループ名でタグを取得できる
+                        tag_response = logs_client.list_tags_log_group(
+                            logGroupName=group_name
                         )
                         # タグ形式を他のリソースと合わせる
                         tags = [{'Key': k, 'Value': v} for k, v in tag_response.get('tags', {}).items()]
+                    except ClientError as e:
+                        # AccessDenied等の権限エラーの場合は、空のタグリストを使用して続行
+                        error_code = e.response.get('Error', {}).get('Code', '')
+                        if error_code in ['AccessDenied', 'UnauthorizedOperation', 'InvalidParameterValue', 'ResourceNotFoundException']:
+                            logger.warning(f"CloudWatch Logsロググループ '{group_name}' のタグ取得エラー（権限不足）: {str(e)}")
+                        else:
+                            # 不明なエラーの場合は例外を再発生
+                            logger.warning(f"CloudWatch Logsロググループ '{group_name}' のタグ取得エラー: {str(e)}")
                     except Exception as e:
-                        logger.warning(f"CloudWatch Logsロググループ '{group_name}' のタグ取得エラー: {str(e)}")
-                    """
+                        # その他のエラーの場合は警告を出して空のタグリストを使用
+                        logger.warning(f"CloudWatch Logsロググループ '{group_name}' のタグ取得中に未知のエラー発生: {str(e)}")
                     
                     # ロググループ情報を追加
                     log_groups.append({
@@ -252,21 +252,25 @@ class CloudWatchCollector(BaseCollector):
                 for rule in page.get('Rules', []):
                     rule_name = rule.get('Name', '名前なし')
                     
-                    # タグの取得はスキップして空のタグリストを使用
-                    # CloudWatch Eventsルールのタグ取得には権限の問題がある可能性があるため
+                    # タグの取得を試みる
                     tags = []
-                    
-                    # 以下のコードはコメントアウト（将来的に必要になった場合のために残しておく）
-                    """
                     try:
                         if 'Arn' in rule:
                             tag_response = events_client.list_tags_for_resource(
                                 ResourceARN=rule['Arn']
                             )
                             tags = tag_response.get('Tags', [])
+                    except ClientError as e:
+                        # AccessDenied等の権限エラーの場合は、空のタグリストを使用して続行
+                        error_code = e.response.get('Error', {}).get('Code', '')
+                        if error_code in ['AccessDenied', 'UnauthorizedOperation', 'InvalidParameterValue']:
+                            logger.warning(f"CloudWatch Eventsルール '{rule_name}' のタグ取得エラー（権限不足）: {str(e)}")
+                        else:
+                            # 不明なエラーの場合は例外を再発生
+                            logger.warning(f"CloudWatch Eventsルール '{rule_name}' のタグ取得エラー: {str(e)}")
                     except Exception as e:
-                        logger.warning(f"CloudWatch Eventsルール '{rule_name}' のタグ取得エラー: {str(e)}")
-                    """
+                        # その他のエラーの場合は警告を出して空のタグリストを使用
+                        logger.warning(f"CloudWatch Eventsルール '{rule_name}' のタグ取得中に未知のエラー発生: {str(e)}")
                     
                     # ルールのターゲット情報を取得
                     targets = []

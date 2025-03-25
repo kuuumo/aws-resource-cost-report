@@ -1,1 +1,5 @@
 .venv
+output/raw/
+*.pyc
+__pycache__/
+.pytest_cache/

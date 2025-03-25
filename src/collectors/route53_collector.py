@@ -222,27 +222,28 @@ class Route53Collector(BaseCollector):
         traffic_policies = []
         
         try:
-            # list_traffic_policiesはパジネーションに対応していないため、直接呼び出し
+            # パジネーション処理の修正：すべてのトラフィックポリシーを取得する
+            # list_traffic_policiesはマーカーベースのパジネーションをサポート
             response = route53_client.list_traffic_policies()
             
+            # 最初のページのアイテムを処理
             for policy_summary in response.get('TrafficPolicySummaries', []):
-                policy_id = policy_summary.get('Id', '')
-                policy_name = policy_summary.get('Name', '名前なし')
+                self._process_traffic_policy(policy_summary, traffic_policies)
+            
+            # 追加ページがあれば取得
+            while response.get('IsTruncated', False):
+                traffic_policy_id_marker = response.get('TrafficPolicyIdMarker', '')
                 
-                # トラフィックポリシー情報を追加
-                traffic_policies.append({
-                    'ResourceId': policy_id,
-                    'ResourceName': policy_name,
-                    'ResourceType': 'TrafficPolicy',
-                    'LatestVersion': policy_summary.get('LatestVersion', 0),
-                    'TrafficPolicyCount': policy_summary.get('TrafficPolicyCount', 0),
-                    'Type': policy_summary.get('Type', ''),
-                    'Comment': policy_summary.get('Comment', '')
-                })
-                
-                # トラフィックポリシーインスタンス情報を取得（オプション、時間がかかる可能性あり）
-                # instances = self._collect_traffic_policy_instances(route53_client, policy_id)
-                # traffic_policies[-1]['Instances'] = instances
+                if traffic_policy_id_marker:
+                    response = route53_client.list_traffic_policies(
+                        TrafficPolicyIdMarker=traffic_policy_id_marker
+                    )
+                    
+                    for policy_summary in response.get('TrafficPolicySummaries', []):
+                        self._process_traffic_policy(policy_summary, traffic_policies)
+                else:
+                    # マーカーがない場合は中断
+                    break
             
             logger.info(f"Route 53トラフィックポリシー: {len(traffic_policies)}件取得")
         except Exception as e:
@@ -250,6 +251,22 @@ class Route53Collector(BaseCollector):
             logger.warning(f"Route 53トラフィックポリシー情報収集中にエラー発生: {str(e)}")
         
         return traffic_policies
+    
+    def _process_traffic_policy(self, policy_summary, traffic_policies):
+        """トラフィックポリシーの情報を処理して追加"""
+        policy_id = policy_summary.get('Id', '')
+        policy_name = policy_summary.get('Name', '名前なし')
+        
+        # トラフィックポリシー情報を追加
+        traffic_policies.append({
+            'ResourceId': policy_id,
+            'ResourceName': policy_name,
+            'ResourceType': 'TrafficPolicy',
+            'LatestVersion': policy_summary.get('LatestVersion', 0),
+            'TrafficPolicyCount': policy_summary.get('TrafficPolicyCount', 0),
+            'Type': policy_summary.get('Type', ''),
+            'Comment': policy_summary.get('Comment', '')
+        })
     
     def _collect_resource_record_sets(self, route53_client, hosted_zone_id) -> int:
         """Route 53リソースレコードセット数を収集"""

@@ -114,25 +114,24 @@ class CloudFrontCollector(BaseCollector):
         cache_policies = []
         
         try:
-            # list_cache_policiesはパジネーションに対応していないため、直接呼び出し
+            # パジネーション処理の修正：すべてのキャッシュポリシーを取得する
+            # MaxItemsのデフォルト値は100。キャッシュポリシーが100を超える場合は複数回呼び出しが必要
             response = cloudfront_client.list_cache_policies()
+            cache_policy_list = response.get('CachePolicyList', {})
             
-            policies_list = response.get('CachePolicyList', {})
+            # 最初のページのアイテムを処理
+            for policy in cache_policy_list.get('Items', []):
+                self._process_cache_policy(policy, cache_policies)
             
-            for policy in policies_list.get('Items', []):
-                policy_id = policy.get('Id', '')
-                policy_name = policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('Name', '名前なし')
+            # NextMarkerがあれば次のページを取得
+            while 'NextMarker' in cache_policy_list and cache_policy_list['NextMarker']:
+                response = cloudfront_client.list_cache_policies(
+                    Marker=cache_policy_list['NextMarker']
+                )
+                cache_policy_list = response.get('CachePolicyList', {})
                 
-                # ポリシー情報を追加
-                cache_policies.append({
-                    'ResourceId': policy_id,
-                    'ResourceName': policy_name,
-                    'ResourceType': 'CachePolicy',
-                    'Comment': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('Comment', ''),
-                    'MinTTL': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('MinTTL', 0),
-                    'MaxTTL': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('MaxTTL', 0),
-                    'DefaultTTL': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('DefaultTTL', 0)
-                })
+                for policy in cache_policy_list.get('Items', []):
+                    self._process_cache_policy(policy, cache_policies)
             
             logger.info(f"CloudFrontキャッシュポリシー: {len(cache_policies)}件取得")
         except Exception as e:
@@ -140,28 +139,45 @@ class CloudFrontCollector(BaseCollector):
         
         return cache_policies
     
+    def _process_cache_policy(self, policy, cache_policies):
+        """キャッシュポリシーの情報を処理して追加"""
+        policy_id = policy.get('Id', '')
+        policy_name = policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('Name', '名前なし')
+        
+        # ポリシー情報を追加
+        cache_policies.append({
+            'ResourceId': policy_id,
+            'ResourceName': policy_name,
+            'ResourceType': 'CachePolicy',
+            'Comment': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('Comment', ''),
+            'MinTTL': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('MinTTL', 0),
+            'MaxTTL': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('MaxTTL', 0),
+            'DefaultTTL': policy.get('CachePolicy', {}).get('CachePolicyConfig', {}).get('DefaultTTL', 0)
+        })
+    
     def _collect_origin_request_policies(self, cloudfront_client) -> List[Dict[str, Any]]:
         """CloudFrontオリジンリクエストポリシー情報を収集"""
         logger.info("CloudFrontオリジンリクエストポリシー情報を収集しています")
         origin_request_policies = []
         
         try:
-            # list_origin_request_policiesはパジネーションに対応していないため、直接呼び出し
+            # パジネーション処理の修正：すべてのオリジンリクエストポリシーを取得する
             response = cloudfront_client.list_origin_request_policies()
-            
             policies_list = response.get('OriginRequestPolicyList', {})
             
+            # 最初のページのアイテムを処理
             for policy in policies_list.get('Items', []):
-                policy_id = policy.get('Id', '')
-                policy_name = policy.get('OriginRequestPolicy', {}).get('OriginRequestPolicyConfig', {}).get('Name', '名前なし')
+                self._process_origin_request_policy(policy, origin_request_policies)
+            
+            # NextMarkerがあれば次のページを取得
+            while 'NextMarker' in policies_list and policies_list['NextMarker']:
+                response = cloudfront_client.list_origin_request_policies(
+                    Marker=policies_list['NextMarker']
+                )
+                policies_list = response.get('OriginRequestPolicyList', {})
                 
-                # ポリシー情報を追加
-                origin_request_policies.append({
-                    'ResourceId': policy_id,
-                    'ResourceName': policy_name,
-                    'ResourceType': 'OriginRequestPolicy',
-                    'Comment': policy.get('OriginRequestPolicy', {}).get('OriginRequestPolicyConfig', {}).get('Comment', '')
-                })
+                for policy in policies_list.get('Items', []):
+                    self._process_origin_request_policy(policy, origin_request_policies)
             
             logger.info(f"CloudFrontオリジンリクエストポリシー: {len(origin_request_policies)}件取得")
         except Exception as e:
@@ -169,35 +185,62 @@ class CloudFrontCollector(BaseCollector):
         
         return origin_request_policies
     
+    def _process_origin_request_policy(self, policy, origin_request_policies):
+        """オリジンリクエストポリシーの情報を処理して追加"""
+        policy_id = policy.get('Id', '')
+        policy_name = policy.get('OriginRequestPolicy', {}).get('OriginRequestPolicyConfig', {}).get('Name', '名前なし')
+        
+        # ポリシー情報を追加
+        origin_request_policies.append({
+            'ResourceId': policy_id,
+            'ResourceName': policy_name,
+            'ResourceType': 'OriginRequestPolicy',
+            'Comment': policy.get('OriginRequestPolicy', {}).get('OriginRequestPolicyConfig', {}).get('Comment', '')
+        })
+    
     def _collect_functions(self, cloudfront_client) -> List[Dict[str, Any]]:
         """CloudFront関数情報を収集"""
         logger.info("CloudFront関数情報を収集しています")
         functions = []
         
         try:
-            # list_functionsはパジネーションに対応していないため、直接呼び出し
+            # パジネーション処理の修正：すべての関数を取得する
             response = cloudfront_client.list_functions()
-            
             functions_list = response.get('FunctionList', {})
             
+            # 最初のページのアイテムを処理
             for function_summary in functions_list.get('Items', []):
-                function_name = function_summary.get('Name', '名前なし')
+                self._process_function(function_summary, functions)
+            
+            # NextMarkerがあれば次のページを取得
+            while 'NextMarker' in functions_list and functions_list['NextMarker']:
+                response = cloudfront_client.list_functions(
+                    Marker=functions_list['NextMarker']
+                )
+                functions_list = response.get('FunctionList', {})
                 
-                # 関数情報を追加
-                functions.append({
-                    'ResourceId': function_summary.get('FunctionMetadata', {}).get('FunctionARN', ''),
-                    'ResourceName': function_name,
-                    'ResourceType': 'Function',
-                    'Status': function_summary.get('Status', ''),
-                    'FunctionConfig': function_summary.get('FunctionConfig', {}).get('Comment', ''),
-                    'Runtime': function_summary.get('FunctionConfig', {}).get('Runtime', ''),
-                    'CreatedTime': function_summary.get('FunctionMetadata', {}).get('CreatedTime', ''),
-                    'LastModifiedTime': function_summary.get('FunctionMetadata', {}).get('LastModifiedTime', ''),
-                    'Stage': function_summary.get('FunctionMetadata', {}).get('Stage', '')
-                })
+                for function_summary in functions_list.get('Items', []):
+                    self._process_function(function_summary, functions)
             
             logger.info(f"CloudFront関数: {len(functions)}件取得")
         except Exception as e:
             logger.error(f"CloudFront関数情報収集中にエラー発生: {str(e)}")
         
         return functions
+    
+    def _process_function(self, function_summary, functions):
+        """CloudFront関数の情報を処理して追加"""
+        function_name = function_summary.get('Name', '名前なし')
+        
+        # 関数情報を追加
+        functions.append({
+            'ResourceId': function_summary.get('FunctionMetadata', {}).get('FunctionARN', ''),
+            'ResourceName': function_name,
+            'ResourceType': 'Function',
+            'Status': function_summary.get('Status', ''),
+            'FunctionConfig': function_summary.get('FunctionConfig', {}).get('Comment', ''),
+            'Runtime': function_summary.get('FunctionConfig', {}).get('Runtime', ''),
+            'CreatedTime': function_summary.get('FunctionMetadata', {}).get('CreatedTime', ''),
+            'LastModifiedTime': function_summary.get('FunctionMetadata', {}).get('LastModifiedTime', ''),
+            'Stage': function_summary.get('FunctionMetadata', {}).get('Stage', '')
+        })

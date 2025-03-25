@@ -1,0 +1,14 @@
+{
+  "cost_increase": {
+    "warning": 10,
+    "critical": 20
+  },
+  "resource_increase": {
+    "warning": 5,
+    "critical": 10
+  },
+  "security_changes": {
+    "warning": 1,
+    "critical": 3
+  }
+}

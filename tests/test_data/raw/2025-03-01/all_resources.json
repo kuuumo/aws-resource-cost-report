@@ -1,0 +1,84 @@
+{
+  "metadata": {
+    "timestamp": "2025-03-01T12:00:00+09:00",
+    "resource_counts": {
+      "EC2_Instances": 3,
+      "S3_Buckets": 2
+    },
+    "total_resources": 5
+  },
+  "resources": {
+    "EC2_Instances": [
+      {
+        "ResourceId": "i-001122334455aabb",
+        "ResourceName": "WebServer01",
+        "ResourceType": "EC2_Instances",
+        "AZ": "ap-northeast-1a",
+        "VpcId": "vpc-11223344",
+        "Tags": [
+          {"Key": "Name", "Value": "WebServer01"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Project", "Value": "MainApp"},
+          {"Key": "UpdatedTag", "Value": "NewValue"}
+        ],
+        "InstanceType": "t3.large",
+        "State": "running"
+      },
+      {
+        "ResourceId": "i-aabbccddee112233",
+        "ResourceName": "DBServer01",
+        "ResourceType": "EC2_Instances",
+        "AZ": "ap-northeast-1b",
+        "VpcId": "vpc-11223344",
+        "Tags": [
+          {"Key": "Name", "Value": "DBServer01"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Project", "Value": "MainApp"}
+        ],
+        "InstanceType": "t3.2xlarge",
+        "State": "running"
+      },
+      {
+        "ResourceId": "i-112233445566ccdd",
+        "ResourceName": "AppServer01",
+        "ResourceType": "EC2_Instances",
+        "AZ": "ap-northeast-1c",
+        "VpcId": "vpc-11223344",
+        "Tags": [
+          {"Key": "Name", "Value": "AppServer01"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Project", "Value": "SecondaryApp"}
+        ],
+        "InstanceType": "t3.medium",
+        "State": "running"
+      }
+    ],
+    "S3_Buckets": [
+      {
+        "ResourceId": "example-assets-bucket",
+        "ResourceName": "example-assets-bucket",
+        "ResourceType": "S3_Buckets",
+        "AZ": "ap-northeast-1",
+        "Tags": [
+          {"Key": "Name", "Value": "AssetsBucket"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Department", "Value": "Marketing"},
+          {"Key": "CostCenter", "Value": "MK123"}
+        ],
+        "CreationDate": "2024-01-15T09:00:00Z"
+      },
+      {
+        "ResourceId": "example-backups-bucket",
+        "ResourceName": "example-backups-bucket",
+        "ResourceType": "S3_Buckets",
+        "AZ": "ap-northeast-1",
+        "Tags": [
+          {"Key": "Name", "Value": "BackupsBucket"},
+          {"Key": "Environment", "Value": "Production"},
+          {"Key": "Department", "Value": "Operations"}
+        ],
+        "CreationDate": "2025-02-20T09:00:00Z"
+      }
+    ]
+  }
+}

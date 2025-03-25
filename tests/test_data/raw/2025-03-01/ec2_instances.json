@@ -1,0 +1,45 @@
+[
+  {
+    "ResourceId": "i-001122334455aabb",
+    "ResourceName": "WebServer01",
+    "ResourceType": "EC2_Instances",
+    "AZ": "ap-northeast-1a",
+    "VpcId": "vpc-11223344",
+    "Tags": [
+      {"Key": "Name", "Value": "WebServer01"},
+      {"Key": "Environment", "Value": "Production"},
+      {"Key": "Project", "Value": "MainApp"},
+      {"Key": "UpdatedTag", "Value": "NewValue"}
+    ],
+    "InstanceType": "t3.large",
+    "State": "running"
+  },
+  {
+    "ResourceId": "i-aabbccddee112233",
+    "ResourceName": "DBServer01",
+    "ResourceType": "EC2_Instances",
+    "AZ": "ap-northeast-1b",
+    "VpcId": "vpc-11223344",
+    "Tags": [
+      {"Key": "Name", "Value": "DBServer01"},
+      {"Key": "Environment", "Value": "Production"},
+      {"Key": "Project", "Value": "MainApp"}
+    ],
+    "InstanceType": "t3.2xlarge",
+    "State": "running"
+  },
+  {
+    "ResourceId": "i-112233445566ccdd",
+    "ResourceName": "AppServer01",
+    "ResourceType": "EC2_Instances",
+    "AZ": "ap-northeast-1c",
+    "VpcId": "vpc-11223344",
+    "Tags": [
+      {"Key": "Name", "Value": "AppServer01"},
+      {"Key": "Environment", "Value": "Production"},
+      {"Key": "Project", "Value": "SecondaryApp"}
+    ],
+    "InstanceType": "t3.medium",
+    "State": "running"
+  }
+]
