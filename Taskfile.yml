@@ -1,18 +1,92 @@
 version: '3'
 
+vars:
+  PYTHON_BIN: '{{if eq OS "windows"}}python{{else}}python3{{end}}'
+  VENV_DIR: '.venv'
+  VENV_ACTIVATE: '{{if eq OS "windows"}}.venv\Scripts\activate{{else}}.venv/bin/activate{{end}}'
+  SRC_DIR: 'src'
+  TESTS_DIR: 'tests'
+  OUTPUT_DIR: 'output'
+  DOCS_DIR: 'docs'
+
 tasks:
+  default:
+    desc: デフォルトタスク - ヘルプを表示
+    cmds:
+      - task: help
+    silent: true
+
+  help:
+    desc: ヘルプを表示
+    cmds:
+      - echo "AWS リソースコスト報告ツール"
+      - echo "利用可能なタスク一覧:"
+      - task --list
+    silent: false
+
   setup:
     desc: セットアップ - 仮想環境と依存パッケージのインストール
     cmds:
-      - rm -rf .venv || true
-      - python -m venv .venv
-      - bash -c '. .venv/bin/activate && pip install -r requirements.txt'
+      - rm -rf {{.VENV_DIR}} || true
+      - "{{.PYTHON_BIN}} -m venv {{.VENV_DIR}}"
+      - bash -c '. {{.VENV_ACTIVATE}} && pip install -r requirements.txt'
     silent: false
 
+  setup:dev:
+    desc: 開発環境のセットアップ
+    cmds:
+      - task: setup
+      - task: install-dev
+      - task: create-dirs
+    silent: false
+
+  install-dev:
+    desc: 開発用依存パッケージをインストール
+    cmds:
+      - bash -c '. {{.VENV_ACTIVATE}} && pip install -r requirements-dev.txt'
+    silent: false
+
+  create-dirs:
+    desc: 必要なディレクトリ構造を作成
+    cmds:
+      - mkdir -p {{.OUTPUT_DIR}}/raw
+      - mkdir -p {{.OUTPUT_DIR}}/processed/trends
+      - mkdir -p {{.OUTPUT_DIR}}/processed/reports
+      - mkdir -p {{.OUTPUT_DIR}}/config
+      - |
+        if [ ! -f {{.OUTPUT_DIR}}/config/report_config.json ]; then
+          echo '{
+            "report_formats": ["markdown", "html"],
+            "show_cost_info": true,
+            "include_graphs": true,
+            "graph_formats": ["png"],
+            "detail_level": "medium"
+          }' > {{.OUTPUT_DIR}}/config/report_config.json
+        fi
+      - |
+        if [ ! -f {{.OUTPUT_DIR}}/config/alert_thresholds.json ]; then
+          echo '{
+            "cost_increase": {
+              "warning": 10,
+              "critical": 20
+            },
+            "resource_increase": {
+              "warning": 5,
+              "critical": 10
+            },
+            "security_changes": {
+              "warning": 1,
+              "critical": 3
+            }
+          }' > {{.OUTPUT_DIR}}/config/alert_thresholds.json
+        fi
+    silent: false
+
+  # 実行関連タスク
   run:
     desc: AWSリソース棚卸しツールを実行
     cmds:
-      - bash -c '. .venv/bin/activate && python src/main.py {{.CLI_ARGS}}'
+      - bash -c '. {{.VENV_ACTIVATE}} && python {{.SRC_DIR}}/main.py {{.CLI_ARGS}}'
     silent: false
 
   run:csv:
@@ -42,7 +116,10 @@ tasks:
   run:region:
     desc: 特定のリージョンで棚卸しを実行
     cmds:
-      - task: run -- --region {{.REGION}}
+      - task: run
+        vars:
+          CLI_ARGS: --region {{.REGION}}
+    silent: false
 
   run:profile:
     desc: 特定のAWSプロファイルで棚卸しを実行
@@ -52,70 +129,165 @@ tasks:
           CLI_ARGS: --profile {{.PROFILE}}
     silent: false
 
-  update-deps:
-    desc: 依存パッケージを更新
+  # レポート関連タスク
+  report:all:
+    desc: すべてのタイプのレポートを生成
     cmds:
-      - bash -c '. .venv/bin/activate && pip install -U -r requirements.txt'
+      - task: run
+        vars:
+          CLI_ARGS: --report all
     silent: false
 
-  clean:
-    desc: 生成されたレポートファイルをクリーン
+  report:summary:
+    desc: サマリーレポートのみ生成
     cmds:
-      - rm -rf output/*
+      - task: run
+        vars:
+          CLI_ARGS: --report summary
     silent: false
 
+  report:trend:
+    desc: トレンドレポートのみ生成
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --report trend
+    silent: false
+
+  report:cost:
+    desc: コストレポートのみ生成
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --report cost
+    silent: false
+
+  report:compare:
+    desc: 変更レポートを生成（直近2回分のデータを比較）
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --compare
+    silent: false
+
+  report:markdown:
+    desc: マークダウン形式でレポート生成
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --report-format markdown
+    silent: false
+
+  report:html:
+    desc: HTML形式でレポート生成
+    cmds:
+      - task: run
+        vars:
+          CLI_ARGS: --report-format html
+    silent: false
+
+  # テスト関連タスク
   test:
-    desc: テストを実行
+    desc: すべてのテストを実行
     cmds:
-      - bash -c '. .venv/bin/activate && pytest'
+      - bash -c '. {{.VENV_ACTIVATE}} && pytest {{.TESTS_DIR}}'
     silent: false
 
+  test:unit:
+    desc: ユニットテストのみ実行
+    cmds:
+      - bash -c '. {{.VENV_ACTIVATE}} && pytest {{.TESTS_DIR}}/unit'
+    silent: false
+
+  test:integration:
+    desc: 統合テストのみ実行
+    cmds:
+      - bash -c '. {{.VENV_ACTIVATE}} && pytest {{.TESTS_DIR}}/integration'
+    silent: false
+
+  test:coverage:
+    desc: テストカバレッジレポートを生成
+    cmds:
+      - bash -c '. {{.VENV_ACTIVATE}} && pytest --cov={{.SRC_DIR}} {{.TESTS_DIR}}'
+    silent: false
+
+  # コード品質関連タスク
   lint:
     desc: コードリンティングを実行
     cmds:
-      - bash -c '. .venv/bin/activate && flake8 src/'
+      - bash -c '. {{.VENV_ACTIVATE}} && flake8 {{.SRC_DIR}}/'
     silent: false
 
   format:
     desc: コードフォーマッティングを実行
     cmds:
-      - bash -c '. .venv/bin/activate && autoflake --remove-all-unused-imports --recursive --in-place src/ && isort src/ && black src/'
+      - bash -c '. {{.VENV_ACTIVATE}} && autoflake --remove-all-unused-imports --recursive --in-place {{.SRC_DIR}}/ && isort {{.SRC_DIR}}/ && black {{.SRC_DIR}}/'
     silent: false
 
   isort:
     desc: インポート文の整理を実行
     cmds:
-      - bash -c '. .venv/bin/activate && isort src/'
+      - bash -c '. {{.VENV_ACTIVATE}} && isort {{.SRC_DIR}}/'
     silent: false
 
   autoflake:
     desc: 未使用のインポートを削除
     cmds:
-      - bash -c '. .venv/bin/activate && autoflake --remove-all-unused-imports --recursive --in-place src/'
+      - bash -c '. {{.VENV_ACTIVATE}} && autoflake --remove-all-unused-imports --recursive --in-place {{.SRC_DIR}}/'
     silent: false
 
-  install-dev:
-    desc: 開発用依存パッケージをインストール
+  check:
+    desc: すべてのコード品質チェックとテストを実行
     cmds:
-      - bash -c '. .venv/bin/activate && pip install -r requirements-dev.txt'
+      - task: lint
+      - task: format
+      - task: test
+    silent: false
+
+  # その他のユーティリティタスク
+  update-deps:
+    desc: 依存パッケージを更新
+    cmds:
+      - bash -c '. {{.VENV_ACTIVATE}} && pip install -U -r requirements.txt'
+    silent: false
+
+  clean:
+    desc: 生成されたレポートファイルをクリーン
+    cmds:
+      - rm -rf {{.OUTPUT_DIR}}/processed/*
+      - echo "処理済みデータを削除しました。生データ ({{.OUTPUT_DIR}}/raw/) は維持されています。"
+    silent: false
+
+  clean:all:
+    desc: すべての出力ファイルをクリーン（生データを含む）
+    cmds:
+      - rm -rf {{.OUTPUT_DIR}}/*
+      - task: create-dirs
+      - echo "すべての出力ファイルを削除し、ディレクトリ構造を再作成しました。"
     silent: false
 
   examples:
     desc: 使用例を表示
     cmds:
-      - echo "# AWS リソース棚卸しツール使用例"
-      - echo "task run               # デフォルト設定で実行"
-      - echo "task run:csv           # CSV形式のみで出力"
-      - echo "task run:json          # JSON形式のみで出力"
+      - echo "# AWS リソースコスト報告ツール使用例"
+      - echo "task setup              # 初期セットアップ"
+      - echo "task setup:dev          # 開発環境のセットアップ"
+      - echo "task run                # デフォルト設定で実行"
+      - echo "task run:csv            # CSV形式のみで出力"
+      - echo "task run:json           # JSON形式のみで出力"
       - echo "task run:region REGION=ap-northeast-1   # 東京リージョンで実行"
       - echo "task run:profile PROFILE=production     # 本番環境プロファイルで実行"
-      - echo "task run -- --profile production --region ap-northeast-1   # カスタムパラメータ指定"
+      - echo "task report:all         # すべてのレポートを生成"
+      - echo "task report:summary     # サマリーレポートのみ生成"
+      - echo "task report:compare     # 変更レポートを生成"
+      - echo "task test               # すべてのテストを実行"
+      - echo "task docs:view          # ドキュメント一覧を表示"
     silent: false
 
   list-services:
     desc: 対応しているサービス一覧を表示
     cmds:
-      - echo "# AWS リソース棚卸しツール - 対応サービス一覧"
+      - echo "# AWS リソースコスト報告ツール - 対応サービス一覧"
       - echo "- Amazon EC2（インスタンス、ボリューム、セキュリティグループ、ロードバランサーなど）"
       - echo "- Amazon S3（バケット）"
       - echo "- Amazon RDS（DBインスタンス、DBクラスター、スナップショットなど）"
@@ -128,4 +300,4 @@ tasks:
       - echo "- Amazon ElastiCache（クラスター、レプリケーショングループなど）"
       - echo "- Amazon SNS（トピック、サブスクリプション）"
       - echo "- Amazon SQS（キュー）"
-    silent: false
+    silent: true
